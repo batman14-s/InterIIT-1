@@ -11,7 +11,7 @@ device = get_default_device()
 
 # load the models parameters
 model_gender=ResNet9(3,2)
-model_gender.load_state_dict(torch.load('Models\Saved Model\gender_classification_trained_model_final.pth',map_location=torch.device('cpu')))
+model_gender.load_state_dict(torch.load('Models\Saved Model\gender_classification.pth',map_location=torch.device('cpu')))
 
 # defining output classes
 gender=['Female','Male']
@@ -20,7 +20,6 @@ gender=['Female','Male']
 detector = MTCNN()
 
 def detect_face(img):
-    
     mt_res = detector.detect_faces(img)
     return_res = []
     
@@ -54,7 +53,7 @@ def detect_face(img):
 
 # preprocess and preduict image from frame
 def predict_gender(img):
-    transformations=tt.Compose([tt.Resize((96,96)), tt.RandomHorizontalFlip(), tt.ToTensor(),tt.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]) ])
+    transformations=tt.Compose([tt.Resize((64,64)), tt.RandomHorizontalFlip(), tt.ToTensor(),tt.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]) ])
     img=transformations(img)
     # Convert to a batch of 1
     xb = to_device(img.unsqueeze(0), device)
@@ -63,7 +62,7 @@ def predict_gender(img):
     # Pick index with highest probability
     _, preds  = torch.max(yb, dim=1)
     # Retrieve the class label
-    print(preds)
+    # print(preds)
     return gender[preds[0].item()]
 
 
