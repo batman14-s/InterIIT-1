@@ -7,4 +7,3 @@ mtcnn
 tensorflow
 deepface
 scipy
-time

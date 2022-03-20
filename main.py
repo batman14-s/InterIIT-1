@@ -10,6 +10,7 @@ import scipy
 import os
 import time
 import gdown
+from imageai.Detection import ObjectDetection
 
 # get present device
 device = get_default_device()
@@ -56,7 +57,16 @@ def detect_face(img):
         
     return return_res
 
-# preprocess and preduict image from frame
+# object detection using tensorflow
+execution_path = os.getcwd()
+
+detector = ObjectDetection()
+detector.setModelTypeAsYOLOv3()
+detector.setModelPath( os.path.join(execution_path , "yolo.h5"))
+detector.loadModel()
+
+
+# preprocess and predict image from frame
 def predict_gender(img):
     transformations=tt.Compose([tt.Resize((64,64)), tt.RandomHorizontalFlip(), tt.ToTensor(),tt.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]) ])
     img=transformations(img)
@@ -90,8 +100,40 @@ def testVideos(vd):
         rgb_frame = frame[:, :, ::-1]
         # print(len(rgb_frame))
 
-        # Find all the faces in the current frame of video
-        face_locations = detect_face(rgb_frame)
+        # object setection
+        # detections = detector.detectObjectsFromImage(input_image=os.path.join(execution_path , "img2.png"), output_image_path=os.path.join(execution_path , "image2new.jpg"), minimum_percentage_probability=30)
+        detections = detector.detectObjectsFromImage(input_image=rgb_frame, input_type="array" , minimum_percentage_probability=30)
+
+        for eachObject in detections:
+            if(eachObject["name"]=="person"):
+                print(eachObject["name"] , " : ", eachObject["percentage_probability"], " : ", eachObject["box_points"] )
+
+                print("--------------------------------")
+                # Find all the faces in the current frame of video
+                            # Find all the faces in the current frame of video
+                x, y, width, height = eachObject["box_points"]
+                center = [x+(width/2), y+(height/2)]
+                max_border = max(width, height)
+                
+                # center alignment
+                l = max(int(center[0]-(max_border/2)), 0)
+                r = max(int(center[0]+(max_border/2)), 0)
+                t = max(int(center[1]-(max_border/2)), 0)
+                b = max(int(center[1]+(max_border/2)), 0)
+
+                cv2.rectangle(frame, (l, t), (r, b), (255, 255, 255), 2)
+                
+                # crop the face
+                center_img_k = rgb_frame[t:t+max_border, 
+                                l:l+max_border, :]
+                face_locations = detect_face(center_img_k)
+                # Display the results
+                for top, right, bottom, left, sex_preds, age_preds in face_locations:
+                    # Draw a box around the face
+                    cv2.rectangle(frame, (left, top), (right, bottom), (255, 0, 255), 2)
+                    text1="Gender: "+sex_preds
+                    cv2.putText(frame, text1, (left, top-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36,255,12), 1)
+                    cv2.putText(frame, 'Age: {:.3f}'.format(age_preds), (left, top-25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36,255,12), 1)
 
         # time when we finish processing for this frame
         new_frame_time = time.time()
@@ -114,14 +156,6 @@ def testVideos(vd):
         # putting the FPS count on the frame
         cv2.putText(frame, fps, (7, 70), cv2.FONT_HERSHEY_SIMPLEX, 3, (100, 255, 0), 3, cv2.LINE_AA)
         cv2.putText(frame, "Press 'n' to skip to next video!", (100, 180), cv2.FONT_HERSHEY_SIMPLEX, 3, (100, 255, 0), 3, cv2.LINE_AA)
-
-        # Display the results
-        for top, right, bottom, left, sex_preds, age_preds in face_locations:
-            # Draw a box around the face
-            cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-            text1="Gender: "+sex_preds
-            cv2.putText(frame, text1, (left, top-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36,255,12), 1)
-            cv2.putText(frame, 'Age: {:.3f}'.format(age_preds), (left, top-25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36,255,12), 1)
             
         # Display the resulting image
         cv2.imshow('Video', frame)
