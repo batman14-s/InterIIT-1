@@ -1,4 +1,5 @@
 import torch
+import pandas as pd
 import numpy as np
 from mtcnn import MTCNN
 import cv2
@@ -24,10 +25,10 @@ model_Age=Age_Model()
 gender=['Female','Male']
 
 # load face detector
-detector = MTCNN()
+detectorf = MTCNN()
 
 def detect_face(img):
-    mt_res = detector.detect_faces(img)
+    mt_res = detectorf.detect_faces(img)
     return_res = []
     
     for face in mt_res:
@@ -84,7 +85,9 @@ def predict_gender(img):
     # print(preds)
     return str(gender[preds[0].item()]) + " (" +str(confidence)+ ")"
 
-def testVideos(vd):
+def testVideos(vd,i):
+    dict={"frame":[],"personid":[],"bb_xmin":[],"bb_ymin":[],"bb_height":[],"bb_width":[],"age_min":[],"age_max":[],"age_actual":[],"gender":[]}
+    x=0
     # used to record the time when we processed last frame
     prev_frame_time = 0
     # used to record the time at which we processed current frame
@@ -93,42 +96,48 @@ def testVideos(vd):
     # Get a reference to webcam 
     video_capture = cv2.VideoCapture(vd)
     while video_capture.isOpened():
+        x+=1
         # Grab a single frame of video
         ret, frame = video_capture.read()
 
         # Convert the image from BGR color (which OpenCV uses) to RGB color 
         rgb_frame = frame[:, :, ::-1]
+        print(type(rgb_frame))
         # print(len(rgb_frame))
 
         # object setection
         # detections = detector.detectObjectsFromImage(input_image=os.path.join(execution_path , "img2.png"), output_image_path=os.path.join(execution_path , "image2new.jpg"), minimum_percentage_probability=30)
-        detections = detector.detectObjectsFromImage(input_image=rgb_frame, input_type="array" , minimum_percentage_probability=30)
-
+        detections = detector.detectObjectsFromImage(input_type="array", input_image=rgb_frame , output_image_path=os.path.join(execution_path , "image.jpg")) # For numpy array input type
+        person=0
         for eachObject in detections:
             if(eachObject["name"]=="person"):
+                person+=1
                 print(eachObject["name"] , " : ", eachObject["percentage_probability"], " : ", eachObject["box_points"] )
-
                 print("--------------------------------")
                 # Find all the faces in the current frame of video
                             # Find all the faces in the current frame of video
                 x, y, width, height = eachObject["box_points"]
-                center = [x+(width/2), y+(height/2)]
-                max_border = max(width, height)
-                
-                # center alignment
-                l = max(int(center[0]-(max_border/2)), 0)
-                r = max(int(center[0]+(max_border/2)), 0)
-                t = max(int(center[1]-(max_border/2)), 0)
-                b = max(int(center[1]+(max_border/2)), 0)
+                # print(x,",",y,",",width,",",height)
 
-                cv2.rectangle(frame, (l, t), (r, b), (255, 255, 255), 2)
+                cv2.rectangle(frame, (x, y), (width, height), (0, 0, 255), 2)
                 
-                # crop the face
-                center_img_k = rgb_frame[t:t+max_border, 
-                                l:l+max_border, :]
+                # croping the detected body out of the frame
+                center_img_k = rgb_frame[x:width, 
+                                y:height, :]
                 face_locations = detect_face(center_img_k)
                 # Display the results
                 for top, right, bottom, left, sex_preds, age_preds in face_locations:
+                    dict["age_actual"].append(age_preds)
+                    dict["gender"].append(sex_preds)
+                    dict["frame"].append(x)
+                    dict["personid"].append(person)
+                    dict["bb_xmin"].append(min(x,width))
+                    dict["bb_ymin"].append(min(y,height))
+                    dict["bb_height"].append(abs(y-height))
+                    dict["bb_width"].append(abs(x-width))
+                    dict["age_min"].append("Nan")
+                    dict["age_max"].append("Nan")
+                    print(person)
                     # Draw a box around the face
                     cv2.rectangle(frame, (left, top), (right, bottom), (255, 0, 255), 2)
                     text1="Gender: "+sex_preds
@@ -172,10 +181,12 @@ def testVideos(vd):
     # Release handle to the webcam
     video_capture.release()
     cv2.destroyAllWindows()
+    db=pd.DataFrame(dict)
+    db.to_csv("Video"+str(i)+".csv")
 i=0
 for vds in os.listdir("Test Videos/"):
     print("Test Videos/"+vds)
-    testVideos("Test Videos/"+vds)
+    testVideos("Test Videos/"+vds,i)
     print("Video ",i," done!")
     i+=1
 # testVideos("Test Videos\Cctv2.mp4")
