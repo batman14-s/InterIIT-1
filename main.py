@@ -7,11 +7,13 @@ from PIL import Image
 from gender_model import ResNet9, get_default_device, to_device
 import torchvision.transforms as tt
 from age_model import Age_Model
-import scipy
+from scipy import special
 import os
 import time
 import gdown
 from imageai.Detection import ObjectDetection
+import matplotlib.pyplot as plt
+from image_enhancing import enhance
 
 # get present device
 device = get_default_device()
@@ -76,7 +78,7 @@ def predict_gender(img):
     # Get predictions from model
     yb = model_gender(xb)
     # print(yb)
-    probs = scipy.special.softmax(yb.detach().numpy()[0])
+    probs = special.softmax(yb.detach().numpy()[0])
     # print(probs)
     confidence=str(round((max(probs))*100,2))+"%" 
     # Pick index with highest probability
@@ -87,7 +89,7 @@ def predict_gender(img):
 
 def testVideos(vd,i):
     dict={"frame":[],"personid":[],"bb_xmin":[],"bb_ymin":[],"bb_height":[],"bb_width":[],"age_min":[],"age_max":[],"age_actual":[],"gender":[]}
-    x=0
+    frameno=0
     # used to record the time when we processed last frame
     prev_frame_time = 0
     # used to record the time at which we processed current frame
@@ -96,7 +98,7 @@ def testVideos(vd,i):
     # Get a reference to webcam 
     video_capture = cv2.VideoCapture(vd)
     while video_capture.isOpened():
-        x+=1
+        frameno+=1
         # Grab a single frame of video
         ret, frame = video_capture.read()
 
@@ -109,7 +111,9 @@ def testVideos(vd,i):
         # detections = detector.detectObjectsFromImage(input_image=os.path.join(execution_path , "img2.png"), output_image_path=os.path.join(execution_path , "image2new.jpg"), minimum_percentage_probability=30)
         detections = detector.detectObjectsFromImage(input_type="array", input_image=rgb_frame , output_image_path=os.path.join(execution_path , "image.jpg")) # For numpy array input type
         person=0
+        dy = 25
         for eachObject in detections:
+            flag=1
             if(eachObject["name"]=="person"):
                 person+=1
                 print(eachObject["name"] , " : ", eachObject["percentage_probability"], " : ", eachObject["box_points"] )
@@ -117,19 +121,27 @@ def testVideos(vd,i):
                 # Find all the faces in the current frame of video
                             # Find all the faces in the current frame of video
                 x, y, width, height = eachObject["box_points"]
-                # print(x,",",y,",",width,",",height)
+                print(x,",",y,",",width,",",height)
+                print(rgb_frame.shape)
 
-                cv2.rectangle(frame, (x, y), (width, height), (0, 0, 255), 2)
+                cv2.rectangle(frame, (x, max(y-dy,0)), (width, height), (0, 0, 255), 2)
                 
                 # croping the detected body out of the frame
-                center_img_k = rgb_frame[x:width, 
-                                y:height, :]
+                center_img_k = rgb_frame[max(y-dy,0):height, x:width, :]
+                # plt.imshow(Image.fromarray(center_img_k))
+                # plt.show()
+                # print(center_img_k.shape)
+                # center_img_k=enhance(center_img_k)
+                # plt.imshow(Image.fromarray(center_img_k))
+                # plt.show()
+                # cv2.imwrite("original.png",(center_img_k))
                 face_locations = detect_face(center_img_k)
                 # Display the results
                 for top, right, bottom, left, sex_preds, age_preds in face_locations:
+                    print("flag: ",flag,", x=",frameno)
                     dict["age_actual"].append(age_preds)
                     dict["gender"].append(sex_preds)
-                    dict["frame"].append(x)
+                    dict["frame"].append(frameno)
                     dict["personid"].append(person)
                     dict["bb_xmin"].append(min(x,width))
                     dict["bb_ymin"].append(min(y,height))
@@ -139,10 +151,15 @@ def testVideos(vd,i):
                     dict["age_max"].append("Nan")
                     print(person)
                     # Draw a box around the face
+                    left+=x
+                    top+=y
+                    right+=x
+                    bottom+=y
                     cv2.rectangle(frame, (left, top), (right, bottom), (255, 0, 255), 2)
                     text1="Gender: "+sex_preds
                     cv2.putText(frame, text1, (left, top-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36,255,12), 1)
-                    cv2.putText(frame, 'Age: {:.3f}'.format(age_preds), (left, top-25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36,255,12), 1)
+                    cv2.putText(frame, 'Age: {:.3f}'.format(age_preds), (left, top-25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 1)
+                    flag+=1
 
         # time when we finish processing for this frame
         new_frame_time = time.time()
