@@ -101,7 +101,7 @@ def testVideos(vd,i):
         frameno+=1
         # Grab a single frame of video
         ret, frame = video_capture.read()
-
+        frame=enhance(frame)
         # Convert the image from BGR color (which OpenCV uses) to RGB color 
         rgb_frame = frame[:, :, ::-1]
         print(type(rgb_frame))
