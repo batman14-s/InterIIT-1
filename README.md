@@ -63,7 +63,7 @@ To give a superior flow gradient at the microscopic level, the model uses the Re
 2. To prevent manual labour, run following command in the terminal with required Python version (3.7.5) to install every required dependencies for this project.
 
 ```
-cd MP_BO_T3_CODE
+cd InterIIT
 pip install -r requirements.txt
 ```
 
